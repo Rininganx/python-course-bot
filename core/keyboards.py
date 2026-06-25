@@ -29,7 +29,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 
 def modules_keyboard(user_progress: dict) -> InlineKeyboardMarkup:
     completed = user_progress.get("completed", [])
-    buttons = []
+    buttons = [[InlineKeyboardButton("< Назад", callback_data="back_main")]]
     for mi, mod in enumerate(MODULES):
         done = sum(1 for i in mod["indices"] if i in completed)
         total = len(mod["indices"])
@@ -45,7 +45,6 @@ def modules_keyboard(user_progress: dict) -> InlineKeyboardMarkup:
             f"{short_name}{tag}  {bar} {done}/{total}",
             callback_data=f"module_{mi}"
         )])
-    buttons.append([InlineKeyboardButton("< Назад", callback_data="back_main")])
     return InlineKeyboardMarkup(buttons)
 
 
