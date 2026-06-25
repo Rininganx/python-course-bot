@@ -1,13 +1,8 @@
 """
 Парсинг Markdown-файлов уроков для Telegram.
 
-Конвертирует Obsidian-формат в Telegram Markdown:
-  # Header      →  *HEADER*
-  > [!tip] ...  →  💡 ...
-  ```python     →  content (pre-formatted)
-  | a | b |     →  a • b
-  [[link]]      →  link
-  ---           →  ──────────
+Конвертирует Obsidian-формат в Telegram Markdown.
+Код извлекается ДО обработки — заголовки и ** внутри кода не ломаются.
 """
 import re
 from pathlib import Path
@@ -24,14 +19,28 @@ def clean_markdown(text: str) -> str:
         if end != -1:
             text = text[end + 3:].strip()
 
-    # ── Wikilinks: [[text]] → text ──
+    # ── Extract code blocks first (protect from transformations) ──
+    code_blocks = []
+
+    def _save_code(m):
+        lang = m.group(1) or ""
+        code = m.group(2).strip()
+        idx = len(code_blocks)
+        code_blocks.append((lang, code))
+        return f"\n%%CODEBLOCK_{idx}%%\n"
+
+    text = re.sub(r"```(\w*)\n(.*?)```", _save_code, text, flags=re.DOTALL)
+
+    # ── Now safe to transform text ──
+
+    # Wikilinks: [[text]] → text
     text = re.sub(r"\[\[([^\]]+)\]\]", r"\1", text)
 
-    # ── Obsidian metadata lines ──
+    # Obsidian metadata lines
     for tag in ["tags:", "date:", "status:", "phase:", "topic:", "aliases:", "cssclasses:"]:
         text = re.sub(rf"^{tag}.*$", "", text, flags=re.MULTILINE)
 
-    # ── Callouts: > [!name] Title ──
+    # Callouts: > [!name] Title → emoji Title
     callout_map = {
         "warning": "⚠️", "tip": "💡", "bug": "🐛", "example": "📝",
         "hint": "💡", "question": "❓", "success": "✅", "abstract": "📋",
@@ -45,23 +54,23 @@ def clean_markdown(text: str) -> str:
     text = re.sub(r"\[/![^\]]+\]", "", text)
     text = re.sub(r"\[![^\]]*\]", "", text)
 
-    # ── Blockquotes: > text → text ──
+    # Blockquotes: > text → text
     text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
 
-    # ── Headers: ## Header → *HEADER* ──
+    # Headers → bold with decoration
     def _header(m):
         level = len(m.group(1))
         title = m.group(2).strip()
         if level == 1:
-            return f"\n*{'━' * 20}*\n*{title.upper()}*\n*{'━' * 20}*"
-        return f"\n*{title}*"
+            return f"\n*{title.upper()}*\n{'━' * 28}"
+        return f"\n*▸ {title}*"
     text = re.sub(r"^(#{1,3})\s+(.+)$", _header, text, flags=re.MULTILINE)
 
-    # ── Horizontal rules: --- → ──────── ──
-    text = re.sub(r"^─+$|^---+$", "─" * 24, text, flags=re.MULTILINE)
-    text = re.sub(r"^─────+\s*$", "─" * 24, text, flags=re.MULTILINE)
+    # Horizontal rules
+    text = re.sub(r"^─+$|^---+$", "·" * 30, text, flags=re.MULTILINE)
+    text = re.sub(r"^─────+\s*$", "·" * 30, text, flags=re.MULTILINE)
 
-    # ── Tables: | a | b | → a • b ──
+    # Tables: | a | b | → a • b
     lines = text.split("\n")
     result = []
     in_table = False
@@ -70,6 +79,7 @@ def clean_markdown(text: str) -> str:
         if stripped.startswith("|") and stripped.endswith("|"):
             if not in_table:
                 in_table = True
+                result.append("")  # blank line before table
             if re.match(r"^\|[\s\-:|]+$", stripped):
                 continue
             cells = [c.strip() for c in stripped.strip("|").split("|")]
@@ -77,32 +87,47 @@ def clean_markdown(text: str) -> str:
         else:
             if in_table:
                 in_table = False
+                result.append("")  # blank line after table
             result.append(line)
     text = "\n".join(result)
 
-    # ── Code blocks: keep content, add pre markers ──
-    def _code_block(m):
-        lang = m.group(1) or ""
-        code = m.group(2).strip()
-        if lang == "python":
-            lines = code.split("\n")
-            formatted = []
-            for line in lines:
-                if "#" in line:
-                    code_part, comment = line.split("#", 1)
-                    formatted.append(f"{code_part.rstrip()} #{comment}")
-                else:
-                    formatted.append(line)
-            code = "\n".join(formatted)
-        return f"\n```\n{code}\n```\n"
-    text = re.sub(r"```(\w*)\n(.*?)```", _code_block, text, flags=re.DOTALL)
-
-    # ── Bold: **text** → *text* ──
+    # Bold: **text** → *text* (but not inside `backticks`)
+    inline_codes = []
+    def _save_inline(m):
+        idx = len(inline_codes)
+        inline_codes.append(m.group(0))
+        return f"%%INLINE_{idx}%%"
+    text = re.sub(r"`[^`]+`", _save_inline, text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"*\1*", text)
+    def _restore_inline(m):
+        return inline_codes[int(m.group(1))]
+    text = re.sub(r"%%INLINE_(\d+)%%", _restore_inline, text)
 
-    # ── Clean excess whitespace ──
+    # Clean excess whitespace
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"^\n+", "", text)
+    text = text.strip()
+
+    # ── Restore code blocks with formatting ──
+    def _restore_code(m):
+        idx = int(m.group(1))
+        lang, code = code_blocks[idx]
+        # Format python comments nicely
+        if lang == "python":
+            lines = []
+            for line in code.split("\n"):
+                if "#" in line and not line.strip().startswith("#"):
+                    parts = line.split("#", 1)
+                    lines.append(f"{parts[0].rstrip()}  # {parts[1].strip()}")
+                else:
+                    lines.append(line)
+            code = "\n".join(lines)
+        return f"\n```\n{code}\n```"
+
+    text = re.sub(r"%%CODEBLOCK_(\d+)%%", _restore_code, text)
+
+    # Final cleanup
+    text = re.sub(r"\n{3,}", "\n\n", text)
     text = text.strip()
 
     return text
@@ -114,16 +139,22 @@ def split_for_telegram(text: str, max_len: int = 3900) -> list[str]:
 
     sections = []
     current = ""
+    in_code = False
+
     for line in text.split("\n"):
-        if len(current) + len(line) + 1 > max_len and current.strip():
+        if line.strip().startswith("```"):
+            in_code = not in_code
+
+        if len(current) + len(line) + 1 > max_len and current.strip() and not in_code:
             sections.append(current.strip())
             current = line + "\n"
         else:
             current += line + "\n"
+
     if current.strip():
         sections.append(current.strip())
 
-    # Try to merge very short trailing sections
+    # Merge short trailing section
     if len(sections) > 1 and len(sections[-1]) < 500:
         prev = sections[-2]
         if len(prev) + len(sections[-1]) + 2 <= max_len:
