@@ -1,8 +1,8 @@
 """
 Парсинг Markdown-файлов уроков для Telegram.
 
-Конвертирует Obsidian-формат в Telegram Markdown.
-Код извлекается ДО обработки — заголовки и ** внутри кода не ломаются.
+Конвертирует Obsidian → красивый Telegram Markdown:
+  Блоки кода в рамках, callout-боксы, структурированные секции.
 """
 import re
 from pathlib import Path
@@ -19,7 +19,7 @@ def clean_markdown(text: str) -> str:
         if end != -1:
             text = text[end + 3:].strip()
 
-    # ── Extract code blocks first (protect from transformations) ──
+    # ── Extract code blocks (protect from transformations) ──
     code_blocks = []
 
     def _save_code(m):
@@ -27,50 +27,74 @@ def clean_markdown(text: str) -> str:
         code = m.group(2).strip()
         idx = len(code_blocks)
         code_blocks.append((lang, code))
-        return f"\n%%CODEBLOCK_{idx}%%\n"
+        return f"\n%%CODE_{idx}%%\n"
 
     text = re.sub(r"```(\w*)\n(.*?)```", _save_code, text, flags=re.DOTALL)
 
-    # ── Now safe to transform text ──
+    # ── Extract inline code (protect from bold conversion) ──
+    inline_codes = []
 
-    # Wikilinks: [[text]] → text
+    def _save_inline(m):
+        idx = len(inline_codes)
+        inline_codes.append(m.group(0))
+        return f"%%IC_{idx}%%"
+
+    text = re.sub(r"`[^`]+`", _save_inline, text)
+
+    # ── Wikilinks ──
     text = re.sub(r"\[\[([^\]]+)\]\]", r"\1", text)
 
-    # Obsidian metadata lines
+    # ── Obsidian metadata ──
     for tag in ["tags:", "date:", "status:", "phase:", "topic:", "aliases:", "cssclasses:"]:
         text = re.sub(rf"^{tag}.*$", "", text, flags=re.MULTILINE)
 
-    # Callouts: > [!name] Title → emoji Title
+    # ── Callouts → styled boxes ──
     callout_map = {
-        "warning": "⚠️", "tip": "💡", "bug": "🐛", "example": "📝",
-        "hint": "💡", "question": "❓", "success": "✅", "abstract": "📋",
-        "info": "ℹ️", "danger": "🔥", "note": "📌",
+        "warning": ("⚠️", "ВНИМАНИЕ"),
+        "tip": ("💡", "СОВЕТ"),
+        "bug": ("🐛", "БАГ"),
+        "example": ("📝", "ПРИМЕР"),
+        "hint": ("💡", "ПОДСКАЗКА"),
+        "question": ("❓", "ВОПРОС"),
+        "success": ("✅", "ГОТОВО"),
+        "abstract": ("📋", "ВЫВОД"),
+        "info": ("ℹ️", "ИНФО"),
+        "danger": ("🔥", "ОПАСНО"),
+        "note": ("📌", "ЗАМЕТКА"),
     }
-    for name, emoji in callout_map.items():
-        text = re.sub(rf">\s*\[!{name}\]\s*(.+)", rf"{emoji} \1", text, flags=re.IGNORECASE)
+    for name, (emoji, label) in callout_map.items():
+        text = re.sub(
+            rf">\s*\[!{name}\]\s*(.+)",
+            rf"{emoji} *{label}*\n└ {_box_line()}\n\1",
+            text, flags=re.IGNORECASE
+        )
         text = re.sub(rf"^\s*\[!{name}\]\s*$", "", text, flags=re.MULTILINE | re.IGNORECASE)
         text = re.sub(rf"\[!{name}\]\s*", f"{emoji} ", text, flags=re.IGNORECASE)
 
     text = re.sub(r"\[/![^\]]+\]", "", text)
     text = re.sub(r"\[![^\]]*\]", "", text)
 
-    # Blockquotes: > text → text
-    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    # ── Blockquotes: > text → styled note ──
+    def _blockquote(m):
+        content = m.group(1).strip()
+        return f"💬  _{content}_"
+    text = re.sub(r"^>\s?(.+)$", _blockquote, text, flags=re.MULTILINE)
 
-    # Headers → bold with decoration
+    # ── Headers ──
     def _header(m):
         level = len(m.group(1))
         title = m.group(2).strip()
         if level == 1:
-            return f"\n*{title.upper()}*\n{'━' * 28}"
-        return f"\n*▸ {title}*"
+            bar = "═" * min(len(title) + 4, 30)
+            return f"\n╔{bar}╗\n║  *{title.upper()}*  ║\n╚{bar}╝"
+        return f"\n■  *{title}*"
     text = re.sub(r"^(#{1,3})\s+(.+)$", _header, text, flags=re.MULTILINE)
 
-    # Horizontal rules
-    text = re.sub(r"^─+$|^---+$", "·" * 30, text, flags=re.MULTILINE)
-    text = re.sub(r"^─────+\s*$", "·" * 30, text, flags=re.MULTILINE)
+    # ── Horizontal rules ──
+    text = re.sub(r"^─+$|^---+$", "────────────────────────────────", text, flags=re.MULTILINE)
+    text = re.sub(r"^─────+\s*$", "────────────────────────────────", text, flags=re.MULTILINE)
 
-    # Tables: | a | b | → a • b
+    # ── Tables ──
     lines = text.split("\n")
     result = []
     in_table = False
@@ -79,40 +103,39 @@ def clean_markdown(text: str) -> str:
         if stripped.startswith("|") and stripped.endswith("|"):
             if not in_table:
                 in_table = True
-                result.append("")  # blank line before table
+                result.append("")
             if re.match(r"^\|[\s\-:|]+$", stripped):
                 continue
             cells = [c.strip() for c in stripped.strip("|").split("|")]
-            result.append("  " + "  •  ".join(cells))
+            row = " │ ".join(cells)
+            result.append(f"  {row}")
         else:
             if in_table:
                 in_table = False
-                result.append("")  # blank line after table
+                result.append("")
             result.append(line)
     text = "\n".join(result)
 
-    # Bold: **text** → *text* (but not inside `backticks`)
-    inline_codes = []
-    def _save_inline(m):
-        idx = len(inline_codes)
-        inline_codes.append(m.group(0))
-        return f"%%INLINE_{idx}%%"
-    text = re.sub(r"`[^`]+`", _save_inline, text)
-    text = re.sub(r"\*\*([^*]+)\*\*", r"*\1*", text)
-    def _restore_inline(m):
-        return inline_codes[int(m.group(1))]
-    text = re.sub(r"%%INLINE_(\d+)%%", _restore_inline, text)
+    # ── Bold: **text** → *text* ──
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
 
-    # Clean excess whitespace
+    # ── Ordered lists: 1. → ① etc ──
+    list_nums = "①②③④⑤⑥⑦⑧⑨⑩"
+    def _list_num(m):
+        n = int(m.group(1))
+        emoji = list_nums[n - 1] if 1 <= n <= 10 else f"{n}."
+        return f"{emoji} "
+    text = re.sub(r"^(\d+)\.\s", _list_num, text, flags=re.MULTILINE)
+
+    # ── Clean whitespace ──
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"^\n+", "", text)
     text = text.strip()
 
-    # ── Restore code blocks with formatting ──
+    # ── Restore code blocks ──
     def _restore_code(m):
         idx = int(m.group(1))
         lang, code = code_blocks[idx]
-        # Format python comments nicely
         if lang == "python":
             lines = []
             for line in code.split("\n"):
@@ -122,15 +145,29 @@ def clean_markdown(text: str) -> str:
                 else:
                     lines.append(line)
             code = "\n".join(lines)
-        return f"\n```\n{code}\n```"
+        box_w = max(len(line) for line in code.split("\n")) if code else 10
+        box_w = max(box_w + 2, 20)
+        top = "┌" + "─" * box_w + "┐"
+        bot = "└" + "─" * box_w + "┘"
+        framed = "\n".join(f"│ {line}{' ' * max(0, box_w - len(line) - 1)}│" for line in code.split("\n"))
+        return f"\n{top}\n{framed}\n{bot}"
 
-    text = re.sub(r"%%CODEBLOCK_(\d+)%%", _restore_code, text)
+    text = re.sub(r"%%CODE_(\d+)%%", _restore_code, text)
+
+    # ── Restore inline code ──
+    def _restore_inline(m):
+        return inline_codes[int(m.group(1))]
+    text = re.sub(r"%%IC_(\d+)%%", _restore_inline, text)
 
     # Final cleanup
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = text.strip()
 
     return text
+
+
+def _box_line() -> str:
+    return "─" * 24
 
 
 def split_for_telegram(text: str, max_len: int = 3900) -> list[str]:
@@ -142,7 +179,10 @@ def split_for_telegram(text: str, max_len: int = 3900) -> list[str]:
     in_code = False
 
     for line in text.split("\n"):
-        if line.strip().startswith("```"):
+        stripped = line.strip()
+        if stripped.startswith("┌") or stripped.startswith("└") or stripped.startswith("│"):
+            pass  # inside code box, don't split
+        elif stripped.startswith("```"):
             in_code = not in_code
 
         if len(current) + len(line) + 1 > max_len and current.strip() and not in_code:
@@ -155,7 +195,7 @@ def split_for_telegram(text: str, max_len: int = 3900) -> list[str]:
         sections.append(current.strip())
 
     # Merge short trailing section
-    if len(sections) > 1 and len(sections[-1]) < 500:
+    if len(sections) > 1 and len(sections[-1]) < 400:
         prev = sections[-2]
         if len(prev) + len(sections[-1]) + 2 <= max_len:
             sections[-2] = prev + "\n\n" + sections[-1]
