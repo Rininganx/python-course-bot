@@ -157,6 +157,7 @@ def lessons_keyboard(user_progress: dict) -> InlineKeyboardMarkup:
 def lesson_keyboard(lesson_idx: int, total_sections: int, current_section: int, is_bookmarked: bool = False) -> InlineKeyboardMarkup:
     page = f"{current_section + 1}/{total_sections}"
 
+    # Row 1: page navigation
     nav_row = []
     if current_section > 0:
         nav_row.append(InlineKeyboardButton("◀", callback_data=f"sec_{lesson_idx}_{current_section - 1}"))
@@ -164,11 +165,23 @@ def lesson_keyboard(lesson_idx: int, total_sections: int, current_section: int, 
     if current_section < total_sections - 1:
         nav_row.append(InlineKeyboardButton("▶", callback_data=f"sec_{lesson_idx}_{current_section + 1}"))
     else:
-        nav_row.append(InlineKeyboardButton("🎯  Завершить", callback_data=f"done_{lesson_idx}"))
+        nav_row.append(InlineKeyboardButton("🎯  Готово", callback_data=f"done_{lesson_idx}"))
 
-    bm = "🔖  В закладках" if is_bookmarked else "🏷  Добавить"
-    bottom_row = [
+    # Row 2: lesson navigation
+    lesson_row = []
+    if lesson_idx > 0:
+        lesson_row.append(InlineKeyboardButton("◀  Предыдущий", callback_data=f"lesson_{lesson_idx - 1}"))
+    if lesson_idx < len(LESSONS_ORDER) - 1:
+        lesson_row.append(InlineKeyboardButton("Следующий  ▶", callback_data=f"lesson_{lesson_idx + 1}"))
+
+    # Row 3: actions
+    bm = "🔖  В закладках" if is_bookmarked else "🏷  Закладка"
+    actions_row = [
         InlineKeyboardButton(bm, callback_data=f"bmtoggle_{lesson_idx}"),
-        InlineKeyboardButton("◀  Модули", callback_data="modules"),
+        InlineKeyboardButton("📋  Шпаргалка", callback_data=f"cheat_{lesson_idx}"),
     ]
-    return InlineKeyboardMarkup([nav_row, bottom_row])
+
+    # Row 4: back
+    back_row = [InlineKeyboardButton("◀  Модули", callback_data="modules")]
+
+    return InlineKeyboardMarkup([nav_row, lesson_row, actions_row, back_row])

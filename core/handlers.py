@@ -328,6 +328,628 @@ async def send_lesson(query, context, lesson_idx: int, section: int, user_id: in
             log.warning("Failed to send lesson %d section %d", lesson_idx, section)
 
 
+# === CHEAT SHEETS ===
+
+CHEATS = {
+    0: """Арифметика — шпаргалка
+────────────────────────
++   сложение
+-   вычитание
+*   умножение
+/   деление (float)
+//  целочисленное деление
+%   остаток от деления
+**  степень
+
+Порядок: ** > * / // % > + -
+Скобки () меняют порядок""",
+
+    1: """Операторы присваивания
+────────────────────────
+x = 5     присваивание
+x += 3    x = x + 3
+x -= 3    x = x - 3
+x *= 3    x = x * 3
+x /= 3    x = x / 3
+x //= 3   x = x // 3
+x %= 3    x = x % 3
+x **= 3   x = x ** 3""",
+
+    2: """Типы данных
+────────────────────────
+int     целые: 42, -7, 0
+float   дробные: 3.14, -0.5
+str     строки: "hello", 'world'
+bool    True / False
+
+type(x)       тип переменной
+int("42")     str -> int
+str(42)       int -> str
+float("3.14") str -> float
+bool(0)       False, bool(1) True""",
+
+    3: """Ввод и вывод
+────────────────────────
+print("hello")        вывод
+print(a, b, sep=", ") разделитель
+print(a, end=" ")     без переноса
+
+f-строки:
+f"{x}"          значение
+f"{x:.2f}"      2 знака после запятой
+f"{x:>10}"      выравнивание вправо
+f"{x:<10}"      выравнивание влево
+f"{x:^10}"      по центру
+f"{x:%}"        процент
+
+input("Вопрос: ")  ввод с клавиатуры""",
+
+    4: """Строки — шпаргалка
+────────────────────────
+len(s)           длина
+s[i]             символ по индексу
+s[a:b]           срез
+s[::-1]          реверс
+
+Методы:
+upper() / lower()   регистр
+strip()             убрать пробелы
+split(",")          разделить
+" ".join(list)      объединить
+replace("a", "b")   замена
+find("x")           позиция (или -1)
+count("x")          сколько раз
+center(10)          по центру
+ljust(10) / rjust() выравнивание""",
+
+    5: """Условия
+────────────────────────
+if условие:
+    код
+elif условие:
+    код
+else:
+    код
+
+Тернарник:
+x = значение if условие else другое
+
+Pass — пустой блок:
+if True:
+    pass
+
+Truthiness:
+False, 0, "", [], {}, None — ложь
+Всё остальное — истина""",
+
+    6: """Сравнения и логика
+────────────────────────
+==  равно        !=  не равно
+>   больше       <  меньше
+>=  больше=      <=  меньше=
+
+in / not in      принадлежность
+is / is not       ссылка
+
+and  и           or  или
+not  не
+
+Кортежи сравнений:
+1 < x < 10  ==  (1 < x) and (x < 10)""",
+
+    7: """Цикл for
+────────────────────────
+for i in range(5):     0,1,2,3,4
+for i in range(1,6):   1,2,3,4,5
+for i in range(0,10,2): 0,2,4,6,8
+
+for s in "hello":      по символам
+for x in [1,2,3]:      по элементам
+
+enumerate(list)    индекс + значение
+zip(a, b)          параллельно
+
+Список:
+[x**2 for x in range(10)]
+[x for x in list if x > 0]""",
+
+    8: """Цикл while
+────────────────────────
+while условие:
+    код
+
+无限循环:
+while True:
+    break
+
+Счётчик:
+n = 0
+while n < 10:
+    n += 1
+
+Проверка ввода:
+while True:
+    x = input()
+    if x.isdigit():
+        break""",
+
+    9: """break и continue
+────────────────────────
+break    выход из цикла
+continue пропуск итерации
+
+Флаг:
+found = False
+for x in list:
+    if x == target:
+        found = True
+        break
+
+for...else:
+for x in list:
+    if x == target:
+        break
+else:
+    print("Не найдено")""",
+
+    10: """Списки — шпаргалка
+────────────────────────
+lst = [1, 2, 3]
+lst[i]         элемент
+lst[a:b]       срез
+len(lst)       длина
+
+Методы:
+append(x)      добавить в конец
+insert(i, x)   вставить по индексу
+extend(list)   добавить список
+remove(x)      удалить значение
+pop(i)         удалить по индексу
+sort()         сортировка
+reverse()      реверс
+copy()         копия
+
+[x**2 for x in lst]    генератор
+[x for x in lst if x>0] с фильтром""",
+
+    11: """Словари — шпаргалка
+────────────────────────
+d = {"key": "value"}
+d["key"]          значение
+d.get("key", 0)   безопасно
+
+Методы:
+keys()     ключи
+values()   значения
+items()    пары
+update(d2) обновить
+pop(key)   удалить
+
+Генератор:
+{x: x**2 for x in range(5)}
+
+Вложенность:
+users = {
+    "name": "Ivan",
+    "age": 25
+}""",
+
+    12: """Кортежи и множества
+────────────────────────
+t = (1, 2, 3)     кортеж (неизменяемый)
+a, b, c = (1, 2, 3)  распаковка
+a, b = b, a       swap
+
+s = {1, 2, 3}     множество (уникальные)
+s & s2   пересечение
+s | s2   объединение
+s - s2   разность
+s ^ s2   симметрическая разность
+
+list(set(lst))  удалить дубликаты""",
+
+    13: """Функции — шпаргалка
+────────────────────────
+def имя(аргументы):
+    return значение
+
+Параметры:
+def f(a, b=10)       по умолчанию
+def f(*args)         позиционные
+def f(**kwargs)      именованные
+def f(a, /, b)       только позиционные
+
+def f(x: int) -> str  подсказка типов
+\"\"\"docstring\"\"\"      документация
+
+return a, b  вернёт кортеж""",
+
+    14: """Область видимости
+────────────────────────
+x = 1          глобальная
+
+def f():
+    x = 2     локальная
+
+def f():
+    global x  изменить глобальную
+
+def outer():
+    x = 1
+    def inner():
+        nonlocal x
+        x = 2
+
+LEGB: Local -> Enclosing -> Global -> Built-in""",
+
+    15: """Lambda и встроенные
+────────────────────────
+lambda x: x + 1        анонимная
+lambda x, y: x + y     с 2 аргументами
+
+sorted(lst, key=lambda x: x[1])
+map(func, lst)          применить
+filter(func, lst)       отфильтровать
+
+Встроенные:
+sum(lst)   min(lst)   max(lst)
+len(lst)   abs(x)     round(x, 2)
+any(lst)   all(lst)
+reversed(lst)""",
+
+    16: """try/except — шпаргалка
+────────────────────────
+try:
+    код
+except ValueError as e:
+    ошибка
+else:
+    если ошибок не было
+finally:
+    всегда
+
+except (TypeError, ValueError):
+    несколько ошибок
+
+raise ValueError("msg")
+    выбросить ошибку
+
+except:
+    перехватить всё (осторожно!)""",
+
+    17: """Файлы — шпаргалка
+────────────────────────
+with open("f.txt") as f:
+    data = f.read()      всё
+    lines = f.readlines() список строк
+    for line in f:        построчно
+
+with open("f.txt", "w") as f:
+    f.write("text")
+
+with open("f.txt", "a") as f:
+    f.write("text")      дописать
+
+import json
+json.dump(obj, f)
+json.load(f)""",
+
+    18: """Модуль os — шпаргалка
+────────────────────────
+import os, os.path
+
+os.getcwd()              текущая папка
+os.listdir(".")          содержимое
+os.makedirs("a/b")       создать папки
+os.rename("a", "b")      переименовать
+os.remove("f.txt")       удалить файл
+
+os.path.exists("f")      существует?
+os.path.isfile("f")      файл?
+os.path.isdir("d")       папка?
+os.path.join("a", "b")   соединить пути
+os.path.getsize("f")     размер
+
+os.environ["KEY"]        переменные""",
+
+    19: """subprocess — шпаргалка
+────────────────────────
+import subprocess
+
+r = subprocess.run(
+    ["cmd", "/c", "dir"],
+    capture_output=True,
+    text=True
+)
+print(r.stdout)
+
+Для PowerShell:
+r = subprocess.run(
+    ["powershell", "-c", "Get-Process"],
+    capture_output=True,
+    text=True,
+    encoding="utf-8"
+)""",
+
+    20: """Реестр Windows
+────────────────────────
+import winreg
+
+key = winreg.OpenKey(
+    winreg.HKEY_CURRENT_USER,
+    "Software\\...",
+    0, winreg.KEY_READ
+)
+value, _ = winreg.QueryValueEx(key, "Name")
+winreg.CloseKey(key)
+
+Запись:
+key = winreg.OpenKey(hive, path, 0, winreg.KEY_SET_VALUE)
+winreg.SetValueEx(key, "Name", 0, winreg.REG_SZ, "value")""",
+
+    21: """pip и venv
+────────────────────────
+pip install package
+pip install package==1.0
+pip install -r requirements.txt
+pip freeze > requirements.txt
+
+python -m venv .venv
+.venv\\Scripts\\activate     Windows
+source .venv/bin/activate   Linux/Mac
+deactivate
+
+pip list                список
+pip show package        инфо""",
+
+    22: """psutil — шпаргалка
+────────────────────────
+import psutil
+
+psutil.cpu_percent()    загрузка CPU
+psutil.cpu_count()      ядра
+
+psutil.virtual_memory() RAM
+psutil.disk_partitions() диски
+psutil.net_io_counters() сеть
+
+psutil.pids()           процессы
+psutil.Process(pid)     процесс
+
+psutil.sensors_temperatures()  температура""",
+
+    23: """Службы Windows
+────────────────────────
+sc query               список
+sc start "name"        запустить
+sc stop "name"         остановить
+sc config "name" start=auto
+
+import psutil
+for s in psutil.win_service_iter():
+    print(s.name(), s.status())""",
+
+    24: """Планировщик задач
+────────────────────────
+schtasks /query        список
+schtasks /create /tn "name" /tr "cmd" /sc daily /st 09:00
+schtasks /delete /tn "name" /f
+schtasks /run /tn "name"
+
+Триггеры:
+ONLOGON   при входе
+ONSTART   при старте
+DAILY     ежедневно
+WEEKLY    еженедельно""",
+
+    25: """Классы и ООП
+────────────────────────
+class Dog:
+    def __init__(self, name):
+        self.name = name
+
+    def bark(self):
+        return f"{self.name} says Woof!"
+
+class Puppy(Dog):
+    def bark(self):
+        return f"{self.name} says Yip!"
+
+Магические методы:
+__str__    str(obj)
+__len__    len(obj)
+__add__    obj1 + obj2""",
+
+    26: """tkinter — шпаргалка
+────────────────────────
+from tkinter import *
+
+root = Tk()
+root.title("Window")
+root.geometry("400x300")
+
+Label(root, text="Hi").pack()
+Button(root, text="Click").pack()
+Entry(root).pack()
+Text(root).pack()
+
+root.mainloop()
+
+pack()    simple
+grid()    table
+place()   absolute""",
+
+    27: """CustomTkinter
+────────────────────────
+import customtkinter as ctk
+
+ctk.set_appearance_mode("dark")
+root = ctk.CTk()
+
+ctk.CTkLabel(root, text="Hi").pack()
+ctk.CTkButton(root, text="Click").pack()
+ctk.CTkEntry(root).pack()
+ctk.CTkSlider(root).pack()
+ctk.CTkProgressBar(root).pack()""",
+
+    28: """Многопоточность
+────────────────────────
+import threading
+
+def task():
+    print("Running...")
+
+t = threading.Thread(target=task, daemon=True)
+t.start()
+
+# НЕ обновлять GUI из потока!
+# Использовать root.after() или Queue""",
+
+    29: """PyInstaller
+────────────────────────
+pip install pyinstaller
+
+pyinstaller --onefile script.py
+pyinstaller --onefile --windowed app.py
+
+Спек-файл:
+pyinstaller --onefile --add-data "data;." script.py
+
+# Скрипт сборки
+pyinstaller build.spec""",
+
+    30: """Установщик (Inno Setup)
+────────────────────────
+[Setup]
+AppName=MyApp
+AppVersion=1.0
+DefaultDirName={autopf}\MyApp
+
+[Files]
+Source: "dist\app.exe"; DestDir: "{app}"
+
+[Icons]
+Name: "{group}\MyApp"; Filename: "{app}\app.exe"
+Name: "{autodesktop}\MyApp"; Filename: "{app}\app.exe" """,
+
+    31: """Git — шпаргалка
+────────────────────────
+git init
+git add .
+git commit -m "msg"
+git push
+git pull
+
+git status
+git log --oneline
+git diff
+
+git branch feature
+git checkout feature
+git merge feature
+
+.gitexcept:
+__pycache__/
+.venv/
+*.exe""",
+
+    32: """Веб-скрейпинг
+────────────────────────
+import requests
+from bs4 import BeautifulSoup
+
+r = requests.get(url)
+soup = BeautifulSoup(r.text, "html.parser")
+
+soup.find("div", class_="name")
+soup.select("div > p")
+soup.get_text()""",
+
+    33: """Работа с API
+────────────────────────
+import requests
+
+r = requests.get(url, headers={"key": "val"})
+r = requests.post(url, json={"key": "val"})
+data = r.json()
+
+# Ретраи
+for i in range(3):
+    try:
+        r = requests.get(url, timeout=5)
+        break
+    except:
+        time.sleep(2**i)""",
+
+    34: """Telegram боты
+────────────────────────
+from telegram import Update
+from telegram.ext import Application, CommandHandler
+
+async def start(update, context):
+    await update.message.reply_text("Hi!")
+
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.run_polling()""",
+
+    35: """SQLite — шпаргалка
+────────────────────────
+import sqlite3
+
+conn = sqlite3.connect("db.db")
+conn.row_factory = sqlite3.Row
+
+conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)")
+conn.execute("INSERT INTO t VALUES (?, ?)", (1, "name"))
+conn.commit()
+
+rows = conn.execute("SELECT * FROM t").fetchall()
+for r in rows:
+    print(r["name"])
+
+conn.close()""",
+
+    36: """Автоматизация — шпаргалка
+────────────────────────
+# Excel
+from openpyxl import Workbook
+wb = Workbook()
+ws = wb.active
+ws["A1"] = "Hello"
+wb.save("file.xlsx")
+
+# PDF
+from PyPDF2 import PdfReader
+r = PdfReader("file.pdf")
+text = r.pages[0].extract_text()
+
+# Email
+import smtplib
+s = smtplib.SMTP("smtp.gmail.com", 587)
+s.starttls()
+s.login("user", "pass")""",
+}
+
+
+async def cheat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    idx = int(data.split("_")[1])
+
+    if idx not in CHEATS:
+        await query.answer("Шпаргалка не найдена", show_alert=True)
+        return
+
+    text = CHEATS[idx]
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("◀  К уроку", callback_data=f"lesson_{idx}")],
+        [InlineKeyboardButton("◀  Модули", callback_data="modules")],
+    ])
+    await query.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+
+
 # === QUIZ ===
 
 QUIZZES = {

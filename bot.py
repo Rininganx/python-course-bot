@@ -32,6 +32,7 @@ from core.handlers import (
     settings_command, export_command,
     admin_command, broadcast_command,
     button_handler, search_handler, daily_lesson,
+    cheat_handler,
 )
 
 logging.basicConfig(
@@ -65,6 +66,7 @@ def main():
     app.add_handler(CommandHandler("broadcast", broadcast_command))
 
     # Inline-кнопки и поиск
+    app.add_handler(CallbackQueryHandler(cheat_handler, pattern="^cheat_"))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
 
