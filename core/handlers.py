@@ -59,35 +59,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Курс пройден!"
 
     text = (
-        f"╔════════════════════════╗\n"
-        f"║   PYTHON  COURSE       ║\n"
-        f"╚════════════════════════╝\n\n"
-        f"  Привет, {user.first_name}!\n\n"
-        f"  ┌──────────────────────┐\n"
-        f"  │  {hero}  │\n"
-        f"  │  {sub}  │\n"
-        f"  └──────────────────────┘\n\n"
-        f"  [{bar}]  {pct}%\n"
-        f"  Уроков: {done}/{total}{streak_line}\n\n"
-        f"  Текущий:\n"
-        f"  > {current}"
+        f"PYTHON COURSE\n"
+        f"────────────────────────\n"
+        f"{hero}\n\n"
+        f"[{bar}]  {pct}%\n"
+        f"Уроков {done}/{total}{streak_line}\n\n"
+        f"Текущий: {current}"
     )
     await update.message.reply_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "╔════════════════════════╗\n"
-        "║   КОМАНДЫ БОТА         ║\n"
-        "╚════════════════════════╝\n\n"
-        "  ┌──────────────────────┐\n"
-        "  │  /start    Меню       │\n"
-        "  │  /stats    Прогресс   │\n"
-        "  │  /random   Случайный  │\n"
-        "  │  /bookmark Закладки   │\n"
-        "  │  /settings Настройки  │\n"
-        "  │  /export   Экспорт    │\n"
-        "  └──────────────────────┘\n\n"
+        "КОМАНДЫ\n"
+        "────────────────────────\n"
+        "/start - Меню\n"
+        "/stats - Прогресс\n"
+        "/random - Случайный\n"
+        "/bookmark - Закладки\n"
+        "/settings - Настройки\n"
+        "/export - Экспорт\n\n"
         "Или напиши тему для поиска"
     )
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data="back_main")]])
@@ -97,9 +88,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "Сброс прогресса\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Это удалит весь прогресс,\n"
-        "закладки и streak.\n\n"
+        "────────────────────────\n\n"
+        "Удалит прогресс, закладки, streak.\n"
         "Ты уверен?"
     )
     kb = InlineKeyboardMarkup([
@@ -175,17 +165,13 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         mod_lines.append(f"  {mod_bar}  {status}")
 
     text = (
-        f"╔════════════════════════╗\n"
-        f"║   МОЙ ПРОГРЕСС         ║\n"
-        f"╚════════════════════════╝\n\n"
-        f"  [{bar}]  {pct}%\n\n"
-        f"  ┌──────────────────────┐\n"
-        f"  │  Уроков:  {done}/{total}      │\n"
-        f"  │  Streak:  {streak} дн.       │\n"
-        f"  │  Закладки: {bms}          │\n"
-        f"  └──────────────────────┘\n\n"
-        f"  По модулям:\n"
-        + "\n".join(f"  {ml}" for ml in mod_lines)
+        f"МОЙ ПРОГРЕСС\n"
+        f"────────────────────────\n"
+        f"[{bar}]  {pct}%\n\n"
+        f"Уроков {done}/{total}\n"
+        f"Streak {streak} дн.\n"
+        f"Закладки {bms}\n\n"
+        + "\n".join(mod_lines)
     )
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data="back_main")]])
     await update.message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
@@ -195,18 +181,17 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     progress = get_user_progress(user_id)
     h = progress.get("reminder_h", 8)
-    m = progress.get("reminder_m", 0)
     text = (
-        f"Настройки\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"  Напоминание: {h:02d}:{m:02d}\n\n"
-        f"Выбери новое время:"
+        f"НАСТРОЙКИ\n"
+        f"────────────────────────\n"
+        f"Напоминание: {h:02d}:00\n\n"
+        f"Выбери время:"
     )
     buttons = []
     for hour in range(6, 23):
-        marker = "  << сейчас" if hour == h else ""
+        marker = " <<" if hour == h else ""
         buttons.append([InlineKeyboardButton(
-            f"  {hour:02d}:00{marker}", callback_data=f"settime_{hour}_0"
+            f"{hour:02d}:00{marker}", callback_data=f"settime_{hour}_0"
         )])
     buttons.append([InlineKeyboardButton("Назад", callback_data="back_main")])
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
@@ -322,7 +307,7 @@ async def send_lesson(query, context, lesson_idx: int, section: int, user_id: in
     page = f"{section + 1}/{len(sections)}"
     done_count = len(progress.get("completed", []))
     total = len(LESSONS_ORDER)
-    header = f"╔{'═' * 28}╗\n║  {name}  ║\n║  {page}  |  {done_count}/{total} уроков     ║\n╚{'═' * 28}╝\n\n"
+    header = f"{name}  |  {page}\n────────────────────────\n\n"
     text = header + sections[section]
     is_bm = lesson_idx in progress.get("bookmarks", [])
 
@@ -562,17 +547,12 @@ async def _handle_button(query, context, user_id, progress, data):
         streak_line = f"  {streak} дн. подряд" if streak > 0 else ""
         current = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Курс пройден!"
         text = (
-            f"╔════════════════════════╗\n"
-            f"║   PYTHON  COURSE       ║\n"
-            f"╚════════════════════════╝\n\n"
-            f"  ┌──────────────────────┐\n"
-            f"  │  {hero}  │\n"
-            f"  │  {sub}  │\n"
-            f"  └──────────────────────┘\n\n"
-            f"  [{bar}]  {pct}%\n"
-            f"  Уроков: {done}/{total}{streak_line}\n\n"
-            f"  Текущий:\n"
-            f"  > {current}"
+            f"PYTHON COURSE\n"
+            f"────────────────────────\n"
+            f"{hero}\n\n"
+            f"[{bar}]  {pct}%\n"
+            f"Уроков {done}/{total}{streak_line}\n\n"
+            f"Текущий: {current}"
         )
         await query.edit_message_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
