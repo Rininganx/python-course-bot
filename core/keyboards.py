@@ -7,15 +7,57 @@ from .config import LESSONS_ORDER, MODULES
 
 MOD_ICONS = ["🟢", "🔵", "🟣", "🔴", "🟡", "🟠", "⚪", "💎"]
 MOD_NAMES_SHORT = [
-    "Арифметика, строки",
-    "Условия, циклы",
-    "Списки, словари",
-    "Функции, ошибки",
-    "Файлы, системные",
-    "Службы, ООП",
-    "GUI, интерфейсы",
-    "Боты, фриланс",
+    "🔢 Арифметика, строки",
+    "🔀 Условия, циклы",
+    "📦 Списки, словари",
+    "⚡ Функции, ошибки",
+    "💾 Файлы, системные",
+    "🛠  Службы, ООП",
+    "🖼  GUI, интерфейсы",
+    "🚀 Боты, фриланс",
 ]
+
+LESSON_ICONS = {
+    "Арифметика": "🔢",
+    "Операторы присваивания": "📝",
+    "Переменные и типы данных": "🔤",
+    "Ввод и вывод": "⌨",
+    "Строки": "💬",
+    "Условия": "🔀",
+    "Сравнения": "⚖",
+    "Цикл for": "🔄",
+    "Цикл while": "🔁",
+    "break и continue": "⚡",
+    "Списки": "📋",
+    "Словари": "📖",
+    "Кортежи": "🔗",
+    "Функции": "🧩",
+    "Область видимости": "🎯",
+    "Lambda": "λ",
+    "try except": "🛡",
+    "Работа с файлами": "📄",
+    "Модуль os": "📁",
+    "subprocess": "⚙",
+    "Реестр Windows": "🪟",
+    "pip и venv": "📦",
+    "psutil": "📊",
+    "Службы Windows": "🔧",
+    "Планировщик": "📅",
+    "Классы и ООП": "🏛",
+    "tkinter": "🖥",
+    "CustomTkinter": "🎨",
+    "Дизайн": "🖌",
+    "Многопоточность": "🧵",
+    "PyInstaller": "💿",
+    "Установщик": "📥",
+    "GitHub": "🐙",
+    "Веб-скрейпинг": "🕷",
+    "Работа с API": "🌐",
+    "Telegram боты": "🤖",
+    "Базы данных": "🗄",
+    "Автоматизация": "🤖",
+    "Фриланс": "💰",
+}
 
 
 def _pct_bar(done: int, total: int, size: int = 6) -> str:
@@ -59,6 +101,13 @@ def modules_keyboard(user_progress: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
+def _lesson_icon(name: str) -> str:
+    for key, icon in LESSON_ICONS.items():
+        if key in name:
+            return icon
+    return "📖"
+
+
 def module_keyboard(module_idx: int, user_progress: dict) -> InlineKeyboardMarkup:
     mod = MODULES[module_idx]
     completed = user_progress.get("completed", [])
@@ -70,14 +119,15 @@ def module_keyboard(module_idx: int, user_progress: dict) -> InlineKeyboardMarku
         name = LESSONS_ORDER[idx]
         short = name.split(" - ", 1)[1] if " - " in name else name
         num = f"{i + 1:02d}"
+        licon = _lesson_icon(short)
         if idx in completed:
             status = "✅"
         elif idx in bookmarks:
             status = "🔖"
         else:
-            status = "📖"
+            status = " "
         buttons.append([InlineKeyboardButton(
-            f"{status}  {num}. {short}", callback_data=f"lesson_{idx}"
+            f"{status} {licon}  {num}. {short}", callback_data=f"lesson_{idx}"
         )])
 
     done = sum(1 for i in mod["indices"] if i in completed)
@@ -94,10 +144,11 @@ def lessons_keyboard(user_progress: dict) -> InlineKeyboardMarkup:
     buttons = []
     completed = user_progress.get("completed", [])
     for i, name in enumerate(LESSONS_ORDER):
-        status = "✅" if i in completed else "📖"
+        status = "✅" if i in completed else " "
         short = name.split(" - ", 1)[1] if " - " in name else name
+        licon = _lesson_icon(short)
         buttons.append([InlineKeyboardButton(
-            f"{status}  {short}", callback_data=f"lesson_{i}"
+            f"{status} {licon}  {short}", callback_data=f"lesson_{i}"
         )])
     buttons.append([InlineKeyboardButton("◀  Назад", callback_data="back_main")])
     return InlineKeyboardMarkup(buttons)
