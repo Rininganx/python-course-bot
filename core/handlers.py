@@ -32,47 +32,59 @@ log = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     progress = get_user_progress(user.id)
-    current_name = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Все уроки пройдены!"
+    done = len(progress["completed"])
+    total = len(LESSONS_ORDER)
+    pct = int(done / total * 100) if total > 0 else 0
+    filled = round(pct / 10)
+    bar = "▓" * filled + "░" * (10 - filled)
     streak = progress.get("streak", 0)
-    streak_line = f"\n🔥 Streak: {streak} дн." if streak > 0 else ""
+    streak_text = f"  🔥 {streak}дн" if streak > 0 else ""
+    current_name = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Все уроки пройдены ✨"
+
     text = (
-        f"🐍 *Python Course Bot*\n\n"
-        f"Привет, {user.first_name}!\n\n"
-        f"Этот бот поможет тебе учить Python по курсу.\n"
-        f"Всего уроков: {len(LESSONS_ORDER)}\n"
-        f"Пройдено: {len(progress['completed'])}{streak_line}\n\n"
-        f"Текущий урок: *{current_name}*\n\n"
-        f"Команды: /stats /random /bookmark /reset /settings"
+        f"┌─────────────────────────┐\n"
+        f"│  🐍  *Python Course Bot*  │\n"
+        f"└─────────────────────────┘\n\n"
+        f"Привет, *{user.first_name}* 👋\n\n"
+        f"Твой прогресс:\n"
+        f"  ▸ [{bar}]  *{pct}%*\n"
+        f"  ▸ Уроков: *{done}/{total}*{streak_text}\n\n"
+        f"  ▸ Текущий: _{current_name}_"
     )
     await update.message.reply_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "📖 *Команды*\n\n"
-        "/start — Главное меню\n"
-        "/stats — Статистика\n"
-        "/random — Случайный урок\n"
-        "/bookmark — Закладки\n"
-        "/settings — Настройки\n"
-        "/export — Экспорт прогресса\n"
-        "/reset — Сбросить прогресс\n"
-        "/help — Эта справка\n\n"
+        "┌─────────────────────────┐\n"
+        "│  📖  Справка             │\n"
+        "└─────────────────────────┘\n\n"
+        "  /start     —  Главное меню\n"
+        "  /stats     —  Статистика\n"
+        "  /random    —  Случайный урок\n"
+        "  /bookmark  —  Закладки\n"
+        "  /settings  —  Настройки\n"
+        "  /export    —  Экспорт прогресса\n"
+        "  /reset     —  Сбросить прогресс\n"
+        "  /help      —  Эта справка\n\n"
         "Или просто напиши тему для поиска 🔍"
     )
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back_main")]])
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("◀️  Назад", callback_data="back_main")]])
     await update.message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "⚠️ *Сброс прогресса*\n\n"
-        "Это удалит весь прогресс, закладки и streak.\n"
+        "┌─────────────────────────┐\n"
+        "│  ⚠️  Сброс прогресса      │\n"
+        "└─────────────────────────┘\n\n"
+        "Это удалит весь прогресс,\n"
+        "закладки и streak.\n\n"
         "Ты уверен?"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Да, сбросить", callback_data="reset_yes"),
-         InlineKeyboardButton("✅ Нет", callback_data="back_main")]
+        [InlineKeyboardButton("❌  Да, сбросить", callback_data="reset_yes"),
+         InlineKeyboardButton("✅  Нет", callback_data="back_main")]
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
 
@@ -88,10 +100,10 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = LESSONS_ORDER[idx]
     short = name.split(" - ", 1)[1] if " - " in name else name
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"📖 {short}", callback_data=f"lesson_{idx}")],
-        [InlineKeyboardButton("🎲 Ещё раз", callback_data="random_lesson")]
+        [InlineKeyboardButton(f"📖  {short}", callback_data=f"lesson_{idx}")],
+        [InlineKeyboardButton("🎲  Ещё раз", callback_data="random_lesson")]
     ])
-    await update.message.reply_text(f"🎲 Случайный урок:\n*{name}*", reply_markup=kb, parse_mode="Markdown")
+    await update.message.reply_text(f"🎲  Случайный урок:\n\n*{name}*", reply_markup=kb, parse_mode="Markdown")
 
 
 async def bookmark_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,16 +112,19 @@ async def bookmark_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bms = progress.get("bookmarks", [])
     if not bms:
         await update.message.reply_text(
-            "🔖 *Закладки*\n\nПока нет закладок.\nОткрой урок и нажми 🔖 чтобы добавить.",
+            "┌─────────────────────────┐\n"
+            "│  🔖  Закладки              │\n"
+            "└─────────────────────────┘\n\n"
+            "Пока пусто.\nОткрой урок и нажми 🔖 чтобы добавить.",
             parse_mode="Markdown"
         )
         return
-    text = f"🔖 *Закладки* ({len(bms)}):\n"
+    text = f"┌─────────────────────────┐\n│  🔖  Закладки  ({len(bms)})        │\n└─────────────────────────┘\n"
     buttons = []
     for idx in bms:
         name = LESSONS_ORDER[idx] if idx < len(LESSONS_ORDER) else f"Урок {idx}"
         short = name.split(" - ", 1)[1] if " - " in name else name
-        buttons.append([InlineKeyboardButton(f"📖 {short}", callback_data=f"lesson_{idx}")])
+        buttons.append([InlineKeyboardButton(f"📖  {short}", callback_data=f"lesson_{idx}")])
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
 
@@ -119,31 +134,34 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     done = len(progress["completed"])
     total = len(LESSONS_ORDER)
     pct = int(done / total * 100) if total > 0 else 0
-    bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+    filled = round(pct / 5)
+    bar = "▓" * filled + "░" * (20 - filled)
     streak = progress.get("streak", 0)
     bms = len(progress.get("bookmarks", []))
     started = progress.get("started", "N/A")[:10]
-    last = progress.get("last_active", "N/A")
 
     mod_lines = []
     for mod in MODULES:
         mod_done = sum(1 for i in mod["indices"] if i in progress["completed"])
         mod_total = len(mod["indices"])
         mod_pct = int(mod_done / mod_total * 100) if mod_total > 0 else 0
-        mod_bar = "█" * (mod_pct // 10) + "░" * (10 - mod_pct // 10)
-        mod_lines.append(f"  {mod['name']}: `{mod_bar}` {mod_done}/{mod_total}")
+        mod_filled = round(mod_pct / 10)
+        mod_bar = "▓" * mod_filled + "░" * (10 - mod_filled)
+        status = "✅" if mod_done == mod_total else f"{mod_done}/{mod_total}"
+        mod_lines.append(f"  {mod['name']}\n  {mod_bar}  {status}")
 
     text = (
-        f"📊 *Статистика*\n\n"
-        f"`[{bar}]` {pct}%\n"
-        f"Пройдено: {done}/{total}\n"
-        f"🔥 Streak: {streak} дн.\n"
-        f"🔖 Закладки: {bms}\n"
-        f"📅 Начато: {started}\n"
-        f"📌 Активность: {last}\n\n"
-        f"*По модулям:*\n" + "\n".join(mod_lines)
+        f"┌─────────────────────────┐\n"
+        f"│  📈  Статистика           │\n"
+        f"└─────────────────────────┘\n\n"
+        f"  ▸ Прогресс:  [{bar}]  *{pct}%*\n"
+        f"  ▸ Уроков:    *{done}/{total}*\n"
+        f"  ▸ Streak:    🔥 *{streak}* дн.\n"
+        f"  ▸ Закладки:  🔖 *{bms}*\n"
+        f"  ▸ Начато:    📅 _{started}_\n\n"
+        f"*По модулям:*\n\n" + "\n\n".join(mod_lines)
     )
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back_main")]])
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("◀️  Назад", callback_data="back_main")]])
     await update.message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
 
 
@@ -153,16 +171,19 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     h = progress.get("reminder_h", 8)
     m = progress.get("reminder_m", 0)
     text = (
-        f"⚙️ *Настройки*\n\n"
-        f"⏰ Напоминание: {h:02d}:{m:02d}\n\n"
+        f"┌─────────────────────────┐\n"
+        f"│  ⚙️  Настройки            │\n"
+        f"└─────────────────────────┘\n\n"
+        f"  ▸ Напоминание:  ⏰ *{h:02d}:{m:02d}*\n\n"
         f"Выбери новое время:"
     )
     buttons = []
     for hour in range(6, 23):
+        marker = "  ◀️ сейчас" if hour == h else ""
         buttons.append([InlineKeyboardButton(
-            f"⏰ {hour:02d}:00", callback_data=f"settime_{hour}_0"
+            f"⏰  {hour:02d}:00{marker}", callback_data=f"settime_{hour}_0"
         )])
-    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="back_main")])
+    buttons.append([InlineKeyboardButton("◀️  Назад", callback_data="back_main")])
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
 
@@ -219,16 +240,16 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     completed = sum(1 for u in users if len(u.get("completed", [])) >= len(LESSONS_ORDER))
 
     text = (
-        f"🛠 *Админ-панель*\n\n"
-        f"👤 Всего пользователей: {total}\n"
-        f"🟢 Активных: {active}\n"
-        f"🎓 Закончили курс: {completed}\n\n"
-        f"Команды:\n"
-        f"/broadcast <текст> — Рассылка всем\n"
-        f"/admin — Эта панель"
+        f"┌─────────────────────────┐\n"
+        f"│  🛠  Админ-панель          │\n"
+        f"└─────────────────────────┘\n\n"
+        f"  ▸ Пользователей:  👤 *{total}*\n"
+        f"  ▸ Активных:       🟢 *{active}*\n"
+        f"  ▸ Закончили:      🎓 *{completed}*\n\n"
+        f"  /broadcast <текст>  —  Рассылка"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📤 Рассылка", callback_data="admin_broadcast")]
+        [InlineKeyboardButton("📤  Рассылка", callback_data="admin_broadcast")]
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
 
@@ -273,7 +294,15 @@ async def send_lesson(query, context, lesson_idx: int, section: int, user_id: in
     sections = lesson["sections"]
     if section >= len(sections):
         section = len(sections) - 1
-    header = f"📖 *{name}* ({section + 1}/{len(sections)})\n\n"
+    page = f"{section + 1}/{len(sections)}"
+    done_count = len(progress.get("completed", []))
+    total = len(LESSONS_ORDER)
+    header = (
+        f"┌─────────────────────────┐\n"
+        f"│  📖  {name}\n"
+        f"│  Стр. {page}  •  {done_count}/{total} уроков\n"
+        f"└─────────────────────────┘\n\n"
+    )
     text = header + sections[section]
     is_bm = lesson_idx in progress.get("bookmarks", [])
 
@@ -463,9 +492,9 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not results:
         await update.message.reply_text("❌ Ничего не найдено.")
         return
-    buttons = [[InlineKeyboardButton(f"📖 {name}", callback_data=f"lesson_{idx}")] for idx, name in results[:10]]
-    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="back_main")])
-    await update.message.reply_text(f"🔍 Найдено {len(results)}:", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons = [[InlineKeyboardButton(f"📖  {name}", callback_data=f"lesson_{idx}")] for idx, name in results[:10]]
+    buttons.append([InlineKeyboardButton("◀️  Назад", callback_data="back_main")])
+    await update.message.reply_text(f"🔍  Найдено: *{len(results)}*", reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
 
 # === CALLBACK HANDLER ===
@@ -489,18 +518,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _handle_button(query, context, user_id, progress, data):
     if data == "back_main":
-        current_name = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Все пройдено!"
+        done = len(progress["completed"])
+        total = len(LESSONS_ORDER)
+        pct = int(done / total * 100) if total > 0 else 0
+        filled = round(pct / 10)
+        bar = "▓" * filled + "░" * (10 - filled)
         streak = progress.get("streak", 0)
-        streak_text = f" | 🔥 Streak: {streak}" if streak > 0 else ""
+        streak_text = f"  🔥 {streak}дн" if streak > 0 else ""
+        current_name = LESSONS_ORDER[progress["current"]] if progress["current"] < len(LESSONS_ORDER) else "Все уроки пройдены ✨"
         text = (
-            f"🐍 *Python Course Bot*\n\n"
-            f"Уроков: {len(LESSONS_ORDER)} | Пройдено: {len(progress['completed'])}{streak_text}\n"
-            f"Текущий: *{current_name}*"
+            f"┌─────────────────────────┐\n"
+            f"│  🐍  *Python Course Bot*  │\n"
+            f"└─────────────────────────┘\n\n"
+            f"  ▸ [{bar}]  *{pct}%*\n"
+            f"  ▸ Уроков: *{done}/{total}*{streak_text}\n"
+            f"  ▸ Текущий: _{current_name}_"
         )
         await query.edit_message_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
     elif data == "modules":
-        await query.edit_message_text("📚 *Выбери модуль:*", reply_markup=modules_keyboard(progress), parse_mode="Markdown")
+        await query.edit_message_text("┌─────────────────────────┐\n│  📚  Модули                │\n└─────────────────────────┘", reply_markup=modules_keyboard(progress), parse_mode="Markdown")
 
     elif data == "lessons":
         await query.edit_message_text("📚 *Список уроков:*", reply_markup=lessons_keyboard(progress), parse_mode="Markdown")
@@ -519,25 +556,31 @@ async def _handle_button(query, context, user_id, progress, data):
         done = len(progress["completed"])
         total = len(LESSONS_ORDER)
         pct = int(done / total * 100) if total > 0 else 0
-        bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+        filled = round(pct / 5)
+        bar = "▓" * filled + "░" * (20 - filled)
         streak = progress.get("streak", 0)
-        streak_line = f"\n🔥 Streak: {streak} дн." if streak > 0 else ""
+        streak_text = f"  🔥 {streak} дн." if streak > 0 else ""
         mod_lines = []
         for mod in MODULES:
             mod_done = sum(1 for i in mod["indices"] if i in progress["completed"])
             mod_total = len(mod["indices"])
             mod_pct = int(mod_done / mod_total * 100) if mod_total > 0 else 0
-            mod_lines.append(f"  {mod['name']}: {mod_done}/{mod_total} ({mod_pct}%)")
+            mod_filled = round(mod_pct / 10)
+            mod_bar = "▓" * mod_filled + "░" * (10 - mod_filled)
+            status = "✅" if mod_done == mod_total else f"{mod_done}/{mod_total}"
+            mod_lines.append(f"  {mod['name']}\n  {mod_bar}  {status}")
         text = (
-            f"📊 *Прогресс*\n\n"
-            f"`[{bar}]` {pct}%\n\n"
-            f"Пройдено: {done}/{total}{streak_line}\n"
-            f"Начато: {progress.get('started', 'N/A')[:10]}\n\n"
-            + "\n".join(mod_lines)
+            f"┌─────────────────────────┐\n"
+            f"│  📈  Прогресс              │\n"
+            f"└─────────────────────────┘\n\n"
+            f"  ▸ [{bar}]  *{pct}%*\n"
+            f"  ▸ Уроков: *{done}/{total}*{streak_text}\n"
+            f"  ▸ Начато: _{progress.get('started', 'N/A')[:10]}_\n\n"
+            + "\n\n".join(mod_lines)
         )
         await query.edit_message_text(
             text,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back_main")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️  Назад", callback_data="back_main")]]),
             parse_mode="Markdown"
         )
 
@@ -575,23 +618,23 @@ async def _handle_button(query, context, user_id, progress, data):
 
         buttons = []
         if has_quiz:
-            buttons.append([InlineKeyboardButton("📝 Пройти тест", callback_data=f"quiz_{idx}")])
+            buttons.append([InlineKeyboardButton("📝  Пройти тест", callback_data=f"quiz_{idx}")])
         if next_idx < len(LESSONS_ORDER):
             update_user_progress(user_id, next_idx)
-            buttons.append([InlineKeyboardButton("▶️ Следующий урок", callback_data=f"lesson_{next_idx}")])
+            buttons.append([InlineKeyboardButton("▶️  Следующий урок", callback_data=f"lesson_{next_idx}")])
         if all_done:
-            buttons.append([InlineKeyboardButton("🎓 Сертификат", callback_data="certificate")])
-        buttons.append([InlineKeyboardButton("🔙 К модулям", callback_data="modules")])
+            buttons.append([InlineKeyboardButton("🎓  Сертификат", callback_data="certificate")])
+        buttons.append([InlineKeyboardButton("◀️  К модулям", callback_data="modules")])
 
-        text = f"✅ Урок *{LESSONS_ORDER[idx]}* завершён!"
+        text = f"✅  Урок завершён!\n\n*{LESSONS_ORDER[idx]}*"
         if all_done:
-            text += "\n\n🎉 *Ты прошёл весь курс!*"
+            text += "\n\n🎉  *Поздравляю! Ты прошёл весь курс!*"
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
     elif data == "search":
         await query.edit_message_text(
-            "🔍 Отправь мне название темы для поиска:",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back_main")]])
+            "🔍  Напиши тему для поиска:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️  Назад", callback_data="back_main")]])
         )
 
     elif data == "random_lesson":
@@ -605,16 +648,21 @@ async def _handle_button(query, context, user_id, progress, data):
     elif data == "bookmarks":
         bms = progress.get("bookmarks", [])
         if not bms:
-            text = "🔖 *Закладки*\n\nПока нет закладок. Нажми 🔖 на любом уроке чтобы добавить."
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back_main")]])
+            text = (
+                "┌─────────────────────────┐\n"
+                "│  🔖  Закладки              │\n"
+                "└─────────────────────────┘\n\n"
+                "Пока пусто.\nНажми 🔖 на уроке чтобы добавить."
+            )
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton("◀️  Назад", callback_data="back_main")]])
         else:
-            text = f"🔖 *Закладки* ({len(bms)}):\n"
+            text = f"┌─────────────────────────┐\n│  🔖  Закладки  ({len(bms)})        │\n└─────────────────────────┘\n"
             buttons = []
             for idx in bms:
                 name = LESSONS_ORDER[idx] if idx < len(LESSONS_ORDER) else f"Урок {idx}"
                 short = name.split(" - ", 1)[1] if " - " in name else name
-                buttons.append([InlineKeyboardButton(f"📖 {short}", callback_data=f"lesson_{idx}")])
-            buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="back_main")])
+                buttons.append([InlineKeyboardButton(f"📖  {short}", callback_data=f"lesson_{idx}")])
+            buttons.append([InlineKeyboardButton("◀️  Назад", callback_data="back_main")])
             kb = InlineKeyboardMarkup(buttons)
         await query.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
 
@@ -695,6 +743,6 @@ async def _handle_button(query, context, user_id, progress, data):
     elif data == "reset_yes":
         reset_user(user_id)
         await query.edit_message_text(
-            "✅ Прогресс сброшен! Начинаем заново.",
+            "✅  Прогресс сброшен!\nНачинаем заново 🚀",
             reply_markup=main_menu_keyboard()
         )
