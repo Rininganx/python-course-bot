@@ -1,14 +1,12 @@
 # Работа с REST API
 
-> Предыдущая тема: 31 - Веб-скрейпинг
-> Следующая тема: 33 - Telegram боты
+> Программное общение с сервисами через HTTP запросы
 
-## Главная идея
+## Theory
 
-API — способ программно общаться с сервисами. Погода, курсы валют, перевод текста, отправка сообщений — всё через API. Это основа 80% фриланс-заказов.
+API — способ получить/отправить данные. GET — получить, POST — создать, PUT — обновить, DELETE — удалить. Авторизация через заголовки или параметры. JSON — основной формат данных. Основа 80% фриланс-заказов.
 
-────────────────────
-## HTTP методы
+## Code
 
 ```python
 import requests
@@ -17,201 +15,81 @@ import requests
 response = requests.get("https://api.example.com/users")
 data = response.json()
 
-# POST — создать данные
+# POST — создать
 new_user = {"name": "Андрей", "email": "andrey@test.com"}
 response = requests.post("https://api.example.com/users", json=new_user)
-print(response.status_code)  # 201 Created
 
-# PUT — обновить данные
-update = {"name": "Андрей Иванов"}
-response = requests.put("https://api.example.com/users/1", json=update)
-
-# DELETE — удалить данные
-response = requests.delete("https://api.example.com/users/1")
-```
-
-────────────────────
-## Заголовки и авторизация
-
-```python
-# API ключ в заголовках
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
+# Авторизация
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
 response = requests.get("https://api.example.com/data", headers=headers)
 
-# API ключ в параметрах
-params = {"api_key": "YOUR_KEY", "q": "python"}
-response = requests.get("https://api.example.com/search", params=params)
-```
-
-────────────────────
-## Практический пример: Погода
-
-```python
-import requests
-
+# Погода через OpenWeatherMap
 def get_weather(city, api_key):
-    """Получить погоду через OpenWeatherMap API."""
     url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "q": city,
-        "appid": api_key,
-        "units": "metric",
-        "lang": "ru"
-    }
-
+    params = {"q": city, "appid": api_key, "units": "metric", "lang": "ru"}
     response = requests.get(url, params=params)
-
     if response.status_code == 200:
         data = response.json()
         return {
-            "city": data["name"],
             "temp": data["main"]["temp"],
             "description": data["weather"][0]["description"],
-            "humidity": data["main"]["humidity"],
-            "wind": data["wind"]["speed"]
         }
-    else:
-        return {"error": f"Ошибка: {response.status_code}"}
+    return {"error": response.status_code}
 
-# Использование
-weather = get_weather("Москва", "YOUR_API_KEY")
-if "error" not in weather:
-    print(f"Погода в {weather['city']}:")
-    print(f"  Температура: {weather['temp']}°C")
-    print(f"  Описание: {weather['description']}")
-    print(f"  Влажность: {weather['humidity']}%")
-    print(f"  Ветер: {weather['wind']} м/с")
-```
-
-────────────────────
-## Обработка ошибок API
-
-```python
-import requests
-from time import sleep
-
+# Запрос с повторными попытками
 def api_request(url, max_retries=3):
-    """Запрос к API с повторными попытками."""
     for attempt in range(max_retries):
         try:
             response = requests.get(url, timeout=10)
-
             if response.status_code == 200:
                 return response.json()
-            elif response.status_code == 429:  # Rate limit
-                wait = int(response.headers.get("Retry-After", 60))
-                print(f"Rate limit. Ждём {wait} сек...")
-                sleep(wait)
-            elif response.status_code >= 500:
-                print(f"Ошибка сервера. Попытка {attempt + 1}")
-                sleep(2 ** attempt)  # Exponential backoff
-            else:
-                print(f"Ошибка клиента: {response.status_code}")
-                return None
-
+            elif response.status_code == 429:
+                import time; time.sleep(60)
         except requests.Timeout:
-            print(f"Таймаут. Попытка {attempt + 1}")
-        except requests.RequestException as e:
-            print(f"Ошибка: {e}")
-            return None
-
+            continue
     return None
 ```
 
-────────────────────
-## Задание
+## Practice
 
-1. Напиши функцию для получения курса валют через API
-2. Добавь кэширование результатов (чтобы не делать повторных запросов)
-3. Сохрани историю запросов в файл
+1. Напиши функцию курса валют через `https://api.exchangerate-api.com/v4/latest/USD`
+2. Добавь кэширование в JSON файл на 1 час
 
-Используй `https://api.exchangerate-api.com/v4/latest/USD` для курса валют. Для кэширования — словарь с временными метками.
-
-────────────────────
-## Решение
+## Answers
 
 ```python
-import requests
-import json
+import requests, json
 from datetime import datetime, timedelta
 
-CACHE_FILE = "exchange_cache.json"
-CACHE_TTL = timedelta(hours=1)
+CACHE_FILE = "cache.json"
 
-def load_cache():
-    """Загрузить кэш из файла."""
+def get_rate(base="USD", target="RUB"):
     try:
-        with open(CACHE_FILE, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+        with open(CACHE_FILE) as f: cache = json.load(f)
+    except: cache = {}
 
-def save_cache(cache):
-    """Сохранить кэш в файл."""
-    with open(CACHE_FILE, "w") as f:
-        json.dump(cache, f, indent=2)
+    key = f"{base}_{target}"
+    if key in cache:
+        cached_time = datetime.fromisoformat(cache[key]["time"])
+        if datetime.now() - cached_time < timedelta(hours=1):
+            print(f"Из кэша: 1 {base} = {cache[key]['rate']} {target}")
+            return cache[key]["rate"]
 
-def get_exchange_rate(base="USD", target="RUB"):
-    """Получить курс валют с кэшированием."""
-    cache = load_cache()
-    cache_key = f"{base}_{target}"
+    response = requests.get(f"https://api.exchangerate-api.com/v4/latest/{base}", timeout=10)
+    if response.status_code == 200:
+        rate = response.json()["rates"][target]
+        cache[key] = {"rate": rate, "time": datetime.now().isoformat()}
+        with open(CACHE_FILE, "w") as f: json.dump(cache, f, indent=2)
+        print(f"С API: 1 {base} = {rate} {target}")
+        return rate
+    return None
 
-    # Проверить кэш
-    if cache_key in cache:
-        cached = cache[cache_key]
-        cached_time = datetime.fromisoformat(cached["time"])
-        if datetime.now() - cached_time < CACHE_TTL:
-            print(f"Из кэша: 1 {base} = {cached['rate']} {target}")
-            return cached["rate"]
-
-    # Запрос к API
-    url = f"https://api.exchangerate-api.com/v4/latest/{base}"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-
-        rate = data["rates"].get(target)
-        if rate:
-            # Сохранить в кэш
-            cache[cache_key] = {
-                "rate": rate,
-                "time": datetime.now().isoformat()
-            }
-            save_cache(cache)
-            print(f"С API: 1 {base} = {rate} {target}")
-            return rate
-        else:
-            print(f"Валюта {target} не найдена")
-            return None
-
-    except requests.RequestException as e:
-        print(f"Ошибка API: {e}")
-        return None
-
-def get_history():
-    """Показать историю запросов."""
-    cache = load_cache()
-    print("=== История запросов ===")
-    for key, value in cache.items():
-        print(f"  {key}: {value['rate']} ({value['time'][:16]})")
-
-# Использование
-rate = get_exchange_rate("USD", "RUB")
-if rate:
-    print(f"\n100 USD = {rate * 100} RUB")
-
-get_history()
+rate = get_rate("USD", "RUB")
+if rate: print(f"100 USD = {rate * 100} RUB")
 ```
 
-────────────────────
-## Что мы научились
+## Tips
 
-- Отправлять GET, POST, PUT, DELETE запросы
-- Работать с JSON ответами
-- Использовать заголовки и авторизацию
-- Обрабатывать ошибки и rate limits
-- Кэшировать результаты API запросов
+- Всегда проверяй `response.status_code` перед чтением `.json()`
+- `timeout=10` — предотвращает зависание
+- Кэшируй результаты чтобы не превышать rate limits

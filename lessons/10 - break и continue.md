@@ -1,223 +1,109 @@
 # break и continue
 
-> Предыдущая тема: 09 - Цикл while
-> Следующая тема: 11 - Списки
+> Управляй циклом: выходи досрочно или пропускай итерации.
 
-## Главная идея
+## Theory
 
-`break` — досрочно выходит из цикла. `continue` — пропускает текущую итерацию и идёт к следующей. Оба делают циклы гибче.
+`break` — полностью выходит из цикла. `continue` — пропускает текущую итерацию и переходит к следующей.
 
-────────────────────
-## break — выход из цикла
+`for...else` — блок `else` выполняется только если цикл завершился **без** `break`. Полезно для проверки "ничего не найдено".
+
+Во вложенных циклах `break` выходит только из внутреннего. Для выхода из внешнего используй флаг.
+
+## Code
 
 ```python
+# break — выход на 5
 for i in range(10):
     if i == 5:
         break
-    print(i)
-# → 0 1 2 3 4  (остановился на 5)
-```
+    print(i)    # 0 1 2 3 4
 
-```python
-# Найти первый проблемный процесс и остановиться
-processes = ["chrome", "svchost", "malware", "discord"]
-
-for proc in processes:
-    if proc == "malware":
-        print(f"Найден: {proc} — стоп!")
-        break
-    print(f"OK: {proc}")
-```
-
-────────────────────
-## continue — пропуск итерации
-
-```python
+# continue — пропуск чётных
 for i in range(6):
     if i % 2 == 0:
-        continue       # пропускаем чётные
-    print(i)
-# → 1 3 5
-```
+        continue
+    print(i)    # 1 3 5
 
-```python
-# Вывести только тяжёлые процессы, лёгкие пропустить
-processes = [("chrome", 850), ("calc", 12), ("steam", 340), ("notepad", 8)]
+# continue — фильтрация процессов
+processes = [("chrome", 850), ("calc", 12), ("steam", 340)]
+for name, ram in processes:
+    if ram < 100:
+        continue
+    print(f"{name}: {ram} MB")
 
-for name, mem in processes:
-    if mem < 100:
-        continue       # пропускаем лёгкие
-    print(f"{name}: {mem} MB")
+# for...else — поиск с результатом
+targets = ["chrome", "svchost", "discord"]
+search = "malware"
+for proc in targets:
+    if proc == search:
+        print(f"Найден: {proc}")
+        break
+else:
+    print("Не найден — система чиста")
 
-# → chrome: 850 MB
-# → steam: 340 MB
-```
-
-────────────────────
-## break vs continue
-
- • `break` • `continue`
-Что делает • Выходит из цикла полностью • Пропускает эту итерацию
-Цикл продолжается? • Нет • Да
-Аналогия • Экстренный стоп • Пропустить шаг
-
-────────────────────
-## Флаг как альтернатива break
-
-Иногда нужно выйти из вложенного цикла — `break` выходит только из внутреннего. Используй флаг:
-
-```python
+# Флаг для выхода из вложенного цикла
 found = False
-
-for group in [["svchost", "chrome"], ["malware", "steam"]]:
+groups = [["a", "b"], ["c", "malware"]]
+for group in groups:
     for proc in group:
         if proc == "malware":
             found = True
             break
     if found:
         break
-
 print("Найдено!" if found else "Чисто")
+
+# continue в while — аккуратно с инкрементом
+i = 0
+while i < 5:
+    i += 1
+    if i == 3:
+        continue
+    print(i)  # 1 2 4 5
 ```
 
-────────────────────
-## Практика — PC Booster
+## Practice
+
+1. Дан список `[95, 820, 180, 910, 215]`. Пропусти значения < 200 (`continue`), выведи остальные. Остановись при значении > 900 (`break`).
+2. Поиск элемента: `nums = [3, 7, 2, 9, 5]`. Найди число 9 с помощью `break`. Если не найдено — выведи через `for...else`.
+3. Напиши бесконечный цикл ввода чисел. При вводе 0 — выход (`break`). Считай сумму введённых.
+
+## Answers
 
 ```python
-processes = [
-    ("svchost.exe",   45,  True),
-    ("chrome.exe",   920, False),
-    ("malware.exe",  200, False),
-    ("discord.exe",  220, False),
-    ("teams.exe",    680, False),
-]
-
-print("=== Сканирование процессов ===")
-
-suspicious = []
-
-for name, mem, is_system in processes:
-    # Пропускаем системные
-    if is_system:
-        print(f"[SYS] {name} — пропущен")
+# Задача 1
+data = [95, 820, 180, 910, 215]
+for val in data:
+    if val < 200:
+        print(f"Пропуск: {val}")
         continue
-
-    # Стоп если нашли malware
-    if "malware" in name:
-        print(f" {name} — УГРОЗА ОБНАРУЖЕНА. Стоп.")
-        suspicious.append(name)
+    print(f"Проверка: {val}")
+    if val > 900:
+        print(f"СТОП: {val}")
         break
 
-    print(f"[OK]  {name} — {mem} MB")
-
-if suspicious:
-    print(f"\nПодозрительные: {', '.join(suspicious)}")
-```
-
-Вывод:
-```
-=== Сканирование процессов ===
-[SYS] svchost.exe — пропущен
-[OK]  chrome.exe — 920 MB
- malware.exe — УГРОЗА ОБНАРУЖЕНА. Стоп.
-
-Подозрительные: malware.exe
-```
-
-────────────────────
-## Задание
-
-PC Booster ищет самый тяжёлый процесс. Напиши программу которая проходит по списку и останавливается на первом критическом.
-
-**Дано:**
-```python
-processes = [
-    ("explorer.exe",  95),
-    ("chrome.exe",   820),
-    ("python.exe",   180),
-    ("teams.exe",    910),
-    ("discord.exe",  215),
-    ("photoshop.exe",1240),
-]
-```
-
-**Нужно:**
-1. Пройти по списку циклом `for`
-2. Если RAM < 200 MB — вывести "Пропуск" и `continue`
-3. Вывести "Проверка" для остальных
-4. Если RAM > 900 MB — вывести "СТОП" и `break`
-5. Если ни один не найден — вывести "Нет критических"
-
-**Ожидаемый вывод:**
-```
-Пропуск: explorer.exe (95 MB)
-Проверка: chrome.exe (820 MB)
-Пропуск: python.exe (180 MB)
-Проверка: teams.exe (910 MB)
-СТОП — критический процесс: teams.exe (910 MB)
-```
-
-💡 Подсказка 1
-> Используй `continue` для пропуска лёгких процессов — код после `continue` не выполнится.
-
-💡 Подсказка 2
-> `break` полностью выходит из цикла — код после цикла продолжит работу.
-
-💡 Подсказка 3
-> Чтобы проверить что цикл завершился без `break`, используй `for...else`: блок `else` выполнится только если не было `break`.
-
-## Решение
-
-```python
-processes = [
-    ("explorer.exe",  95),
-    ("chrome.exe",   820),
-    ("python.exe",   180),
-    ("teams.exe",    910),
-    ("discord.exe",  215),
-    ("photoshop.exe",1240),
-]
-
-for name, mem in processes:
-    if mem < 200:
-        print(f"Пропуск: {name} ({mem} MB)")
-        continue
-
-    print(f"Проверка: {name} ({mem} MB)")
-
-    if mem > 900:
-        print(f"СТОП — критический процесс: {name} ({mem} MB)")
+# Задача 2
+nums = [3, 7, 2, 9, 5]
+for n in nums:
+    if n == 9:
+        print(f"Найден: {n}")
         break
 else:
-    print("Нет критических процессов")
+    print("Не найден")
+
+# Задача 3
+total = 0
+while True:
+    num = int(input("Число (0 = выход): "))
+    if num == 0:
+        break
+    total += num
+print(f"Сумма: {total}")
 ```
 
-**Разбор:**
-1. `if mem < 200: continue` → пропускаем лёгкие процессы, идём к следующему
-2. `print("Проверка...")` → выполняется только если RAM >= 200
-3. `if mem > 900: break` → нашли критический → выходим из цикла
-4. `else` после `for` → выполняется **только** если цикл завершился без `break`
-5. Если бы не было процесса > 900 MB — сработал бы `else`
+## Tips
 
-────────────────────
-## Заметки на полях
-
-💡 `for ... else` — редко но полезно
-> ```python
-> for proc in processes:
->     if proc == "malware":
->         break
-> else:
->     print("Всё чисто")  # выполнится только если break не сработал
-> ```
-
-⚠️ `continue` в `while` — не забудь про шаг
-> ```python
-> i = 0
-> while i < 5:
->     i += 1        # ← должно быть ДО continue
->     if i == 3:
->         continue
->     print(i)
-> ```
-> Если инкремент ПОСЛЕ `continue` — попадёшь в бесконечный цикл.
+- `continue` в `while` — инкремент должен быть **до** `continue`, иначе бесконечный цикл.
+- `break` выходит только из одного цикла. Для вложенных — используй флаг.
+- `for...else` — else сработает только если не было `break`.
